@@ -6,22 +6,48 @@ from django.shortcuts import get_object_or_404
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import (IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
+from rest_framework.permissions import (IsAuthenticated, IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from reviews.models import User
 
+from reviews.models import User, Genre, Category, Title, Review, Comment
 from api_yamdb.settings import ADMIN_EMAIL
+from .permissions import IsAdminOrReadOnly, IsAuthorModeratorAdminOrReadOnly, ReadOnly
+from .serializers import GetTokenSerializer,SignUpSerializer,UserAdminSerializer, UserSerializer, GenreSerializer, CategorySerializer, TitleSerializer, ReviewSerializer, CommentSerializer
 
-from .permissions import IsAdmin, IsAuthorModeratorAdminOrReadOnly, ReadOnly
-from .serializers import (GetTokenSerializer,SignUpSerializer,UserAdminSerializer, UserSerializer)
+
+class ListCreateDeleteViewSet(
+        mixins.ListModelMixin, mixins.CreateModelMixin,
+        mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    pass
+
+
+class GenreViewSet(ListCreateDeleteViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+    search_fields = ('name',)
+    permission_classes = (IsAdminOrReadOnly,)
+
+
+class CategoryViewSet(ListCreateDeleteViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    search_fields = ('name',)
+    permission_classes = (IsAdminOrReadOnly,)
+
+
+class TitleViewSet(viewsets.ModelViewSet):
+    queryset = Title.objects.all()
+    serializer_class = TitleSerializer
+    permission_classes = (IsAdminOrReadOnly,)
+
+
 
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserAdminSerializer
-    permission_classes = (IsAdmin,)
+    permission_classes = (IsAdminOrReadOnly,)
     pagination_class = PageNumberPagination
     lookup_field = 'username'
 
@@ -82,3 +108,35 @@ def get_and_send_confirmation_code(user):
     )
 
 
+class ReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = (IsAuthorModeratorAdminOrReadOnly,)
+
+    def get_queryset(self):
+        title = get_object_or_404(
+            Title,
+            id=self.kwargs.get('title_id'))
+        return title.reviews.all()
+
+    def perform_create(self, serializer):
+        title = get_object_or_404(
+            Title,
+            id=self.kwargs.get('title_id'))
+        serializer.save(author=self.request.user, title=title)
+
+
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = (IsAuthorModeratorAdminOrReadOnly,)
+
+    def get_queryset(self):
+        review = get_object_or_404(
+            Review,
+            id=self.kwargs.get('review_id'))
+        return review.comments.all()
+
+    def perform_create(self, serializer):
+        review = get_object_or_404(
+            Review,
+            id=self.kwargs.get('review_id'))
+        serializer.save(author=self.request.user, review=review)
