@@ -1,10 +1,12 @@
 import datetime as dt
+import uuid
 
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from reviews.models import User, Category, Genre, Title, GenreTitle, Comment, Review
+from .validators import validate_email, validate_username
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -14,36 +16,67 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'username',
-                  'bio', 'email', 'role']
+        fields = ('first_name', 'last_name', 'username',
+                  'bio', 'email', 'role', 'confirmation_code')
+    
+    def create(self, validated_data):
+        email = validated_data['email']
+        confirmation_code = str(uuid.uuid3(uuid.NAMESPACE_X500, email))
+        return User.objects.create(
+            **validated_data,
+            confirmation_code=confirmation_code
+        )
+    
+    def validate_username(self, name):
+        if name == 'me':
+            raise serializers.ValidationError()
+        elif name is None or name == "":
+            raise serializers.ValidationError()
+        return name
+
+    def validate_email(self, email):
+        if email is None or email == "":
+            raise serializers.ValidationError()
+        return email
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = fields = ['first_name', 'last_name', 'username',
-                  'bio', 'email', 'role']
+        fields = ('first_name', 'last_name', 'username',
+                  'bio', 'email', 'role', 'confirmation_code')
 
-    def validate(self, data):
-        if self.initial_data.get('username') == 'me':
-            raise serializers.ValidationError(
-                'Ошибка: нельзя использовать данное имя!'
-            )
-        return data
+    def validate_username(self, name):
+        if name == 'me':
+            raise serializers.ValidationError()
+        elif name is None or name == "":
+            raise serializers.ValidationError()
+        return name
+
+    def validate_email(self, email):
+        if email is None or email == "":
+            raise serializers.ValidationError()
+        return email
 
 
 class SignUpSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
         fields = ('username', 'email')
 
-    def validate(self, data):
-        if self.initial_data.get('username') == 'me':
-            raise serializers.ValidationError(
-                'Ошибка: нельзя использовать данное имя!'
-            )
-        return data
+    def validate_username(self, name):
+        if name == 'me':
+            raise serializers.ValidationError()
+        elif name is None or name == "":
+            raise serializers.ValidationError()
+        return name
+
+    def validate_email(self, email):
+        if email is None or email == "":
+            raise serializers.ValidationError()
+        return email
 
 
 class GetTokenSerializer(serializers.Serializer):
@@ -53,12 +86,21 @@ class GetTokenSerializer(serializers.Serializer):
     class Meta:
         model = User
         fields = ('username', 'confirmation_code')
+    
+    def validate_username(self, name):
+        if name == 'me':
+            raise serializers.ValidationError()
+        elif name is None or name == "":
+            raise serializers.ValidationError()
+        return name
+
 
 
 class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
+        lookup_field = 'slug'
         fields = ('name', 'slug')
 
 
