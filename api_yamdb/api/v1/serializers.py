@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from reviews.models import User, Category, Genre, Title, GenreTitle, Comment, Review
+from .utils import get_and_send_confirmation_code
 from .validators import validate_email, validate_username
 
 
@@ -44,8 +45,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'username',
-                  'bio', 'email', 'role', 'confirmation_code')
+        fields = ('username', 'email','first_name', 'last_name', 'bio', 'role')
 
     def validate_username(self, name):
         if name == 'me':
@@ -93,7 +93,6 @@ class GetTokenSerializer(serializers.Serializer):
         elif name is None or name == "":
             raise serializers.ValidationError()
         return name
-
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -167,6 +166,9 @@ class TitleSerializer(serializers.ModelSerializer):
         if not (0 < value <= year):
             raise serializers.ValidationError('Не корректная дата! ')
         return value
+
+
+
     
 
 class ReviewSerializer(serializers.ModelSerializer):

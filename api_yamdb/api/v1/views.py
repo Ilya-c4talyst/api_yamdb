@@ -1,19 +1,19 @@
-import uuid
-
-from django.core.mail import send_mail
 from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action, api_view
-from .pagination import UserPagination
-from rest_framework.permissions import (IsAuthenticated, IsAuthenticatedOrReadOnly)
+from rest_framework.permissions import (IsAuthenticated)
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from reviews.models import User, Genre, Category, Title, Review, Comment
-from api_yamdb.settings import ADMIN_EMAIL
+from reviews.models import User, Genre, Category, Title, Review
 from .permissions import IsAdmin, IsAuthorModeratorAdminOrReadOnly, ReadOnly
-from .serializers import GetTokenSerializer,SignUpSerializer,UserAdminSerializer, UserSerializer, GenreSerializer, CategorySerializer, TitleSerializer, ReviewSerializer, CommentSerializer
+from .serializers import (
+    GetTokenSerializer,SignUpSerializer,UserAdminSerializer,
+    UserSerializer, GenreSerializer, CategorySerializer,
+    TitleSerializer, ReviewSerializer, CommentSerializer
+)
+from .utils import get_and_send_confirmation_code
 
 
 class ListCreateDeleteViewSet(
@@ -26,7 +26,8 @@ class GenreViewSet(ListCreateDeleteViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     search_fields = ('name',)
-    
+    filter_backends = (filters.SearchFilter,)
+
     def get_permissions(self):
         if self.action == 'list':
             return (ReadOnly(),)
@@ -37,6 +38,7 @@ class CategoryViewSet(ListCreateDeleteViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     search_fields = ('name',)
+    filter_backends = (filters.SearchFilter,)
     
     def get_permissions(self):
         if self.action == 'list':
@@ -47,6 +49,7 @@ class CategoryViewSet(ListCreateDeleteViewSet):
 class TitleViewSet(viewsets.ModelViewSet):
     queryset = Title.objects.all()
     serializer_class = TitleSerializer
+    filter_backends = (filters.SearchFilter,)
     
     def get_permissions(self):
         if self.action == 'list':
@@ -59,15 +62,14 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserAdminSerializer
     permission_classes = (IsAdmin,)
-    pagination_class = UserPagination
+    http_method_names = ["patch", "get", "post", "delete"]
     filter_backends = (filters.SearchFilter,)
-    search_fields = ('user__username',)
+    search_fields = ('username',)
 
     @action(
         detail=False,
         methods=['get', 'patch'],
         permission_classes=[IsAuthenticated],
-        pagination_class=[UserPagination],
         url_path='me',
     )
     def me(self, request):
@@ -94,7 +96,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
 @api_view(['POST'])
 def signup(request):
-    user = User.objects.filter(**request.data)
+    user = User.objects.filter(
+        username=request.data.get('username'),
+        email=request.data.get('email')
+    )
     if user.exists():
         get_and_send_confirmation_code(user)
         return Response(request.data, status=status.HTTP_200_OK)
@@ -105,7 +110,6 @@ def signup(request):
         user = User.objects.filter(**serializer.data)
         get_and_send_confirmation_code(user)
     return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 
 @api_view(['POST'])
@@ -122,19 +126,6 @@ def token(request):
     return Response(
         status=status.HTTP_400_BAD_REQUEST
     )
-
-
-def get_and_send_confirmation_code(user):
-    for u in user:
-        u.confirmation_code = str(uuid.uuid4()).split("-")[0]
-        u.save()
-        send_mail(
-            'Код подтверждения',
-            f'Код подтверждения "{u.username}": {u.confirmation_code}',
-            ADMIN_EMAIL,
-            [u.email]
-        )
-
 
 
 class ReviewViewSet(viewsets.ModelViewSet):

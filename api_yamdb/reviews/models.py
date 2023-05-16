@@ -12,13 +12,13 @@ class User(AbstractUser):
         (ADMIN, 'admin'),
         (MODERATOR, 'moderator')
     ]
-    first_name = models.CharField(max_length=150, blank=True)
-    last_name = models.CharField(max_length=150, blank=True)
     username = models.SlugField(max_length=150, unique=True)
     email = models.EmailField(max_length=254, unique=True)
+    first_name = models.CharField(max_length=150, blank=True)
+    last_name = models.CharField(max_length=150, blank=True)
     bio = models.TextField(blank=True, max_length=100, null=True)
     role = models.SlugField(choices=ROLES, default=USER, max_length=10)
-    confirmation_code = models.SlugField(null=True, blank=True, max_length=200, editable=False, unique=True)
+    confirmation_code = models.SlugField(null=True, blank=True, max_length=200, editable=True, unique=True)
 
     @property
     def is_user(self):
