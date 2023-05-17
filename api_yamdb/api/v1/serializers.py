@@ -3,17 +3,19 @@ import uuid
 
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from rest_framework import serializers
 
 from reviews.models import User, Category, Genre, Title, GenreTitle, Comment, Review
-from .utils import get_and_send_confirmation_code
 from .validators import validate_email, validate_username
 
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.StringRelatedField(read_only=True)
-    username = serializers.SlugField(read_only=True)
-    email = serializers.SlugField(read_only=True)
+    username_validator = RegexValidator(
+        regex=r'^[\w.@+-]+$',
+        message='Некорректный формат поля username'
+    )
 
     class Meta:
         model = User
@@ -29,6 +31,7 @@ class UserSerializer(serializers.ModelSerializer):
         )
     
     def validate_username(self, name):
+        self.username_validator(name)
         if name == 'me':
             raise serializers.ValidationError()
         elif name is None or name == "":
@@ -139,7 +142,29 @@ class category_type(serializers.Field):
         return get_object_or_404(Category, slug=data)
 
 
+
 class TitleSerializer(serializers.ModelSerializer):
+    # category = serializers.SlugRelatedField(
+    #     slug_field='slug',
+    #     queryset=Category.objects.all()
+    # )
+    # genre = serializers.SlugRelatedField(
+    #     slug_field='slug',
+    #     queryset=Genre.objects.all(),
+    #     many=True)
+    # rating = serializers.IntegerField(read_only=True)
+
+    # class Meta:
+    #     model = Title
+    #     fields = (
+    #         'id',
+    #         'name',
+    #         'year',
+    #         'rating',
+    #         'description',
+    #         'category',
+    #         'genre',
+    #     )
 
     genre = genre_type()
     category = category_type()
@@ -168,17 +193,32 @@ class TitleSerializer(serializers.ModelSerializer):
         return value
 
 
+class TitleListSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(required=True)
+    genre = GenreSerializer(many=True, required=True)
+    rating = serializers.IntegerField(read_only=True)
 
+    class Meta:
+        fields = '__all__'
+        model = Title
+
+    def validate_year(self, value):
+        current_year = dt.datetime.now().year
+        if value > current_year:
+            raise ValidationError(
+                'Произведение не может иметь год позже текущего'
+            )
     
 
+
 class ReviewSerializer(serializers.ModelSerializer):
-    title = serializers.SlugRelatedField(
-        read_only=True, slug_field='text')
+    # title = serializers.SlugRelatedField(
+    #     read_only=True, slug_field='text')
     author = serializers.SlugRelatedField(
         read_only=True, slug_field='username')
     
     class Meta:
-        fields = "__all__"
+        fields = ('id', 'text', 'author', 'score', 'pub_date')
         model = Review
     
     def validate(self, data):
@@ -195,11 +235,11 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    review = serializers.SlugRelatedField(
-        read_only=True, slug_field='name')
+    # review = serializers.SlugRelatedField(
+    #     read_only=True, slug_field='name')
     author = serializers.SlugRelatedField(
         read_only=True, slug_field='username')
 
     class Meta:
-        fields = "__all__"
+        fields = fields = ('id', 'text', 'author', 'pub_date')
         model = Comment
