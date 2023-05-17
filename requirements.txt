@@ -22,4 +22,8 @@ rest-framework-simplejwt==0.0.2
 sqlparse==0.4.4
 toml==0.10.2
 urllib3==1.26.15
+<<<<<<< HEAD
 django-filter==21.1
+=======
+django-filter==21.1
+>>>>>>> e2f08f521909a8484a303a217570c9529376af34
