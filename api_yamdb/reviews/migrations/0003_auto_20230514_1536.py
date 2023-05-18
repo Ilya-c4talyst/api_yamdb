@@ -7,45 +7,85 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('reviews', '0002_auto_20230513_1802'),
+        ("reviews", "0002_auto_20230513_1802"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Category',
+            name="Category",
             fields=[
-                ('name', models.CharField(max_length=256)),
-                ('slug', models.SlugField(primary_key=True, serialize=False)),
+                ("name", models.CharField(max_length=256)),
+                ("slug", models.SlugField(primary_key=True, serialize=False)),
             ],
         ),
         migrations.CreateModel(
-            name='Genre',
+            name="Genre",
             fields=[
-                ('name', models.CharField(max_length=256)),
-                ('slug', models.SlugField(primary_key=True, serialize=False)),
+                ("name", models.CharField(max_length=256)),
+                ("slug", models.SlugField(primary_key=True, serialize=False)),
             ],
         ),
         migrations.CreateModel(
-            name='GenreTitle',
+            name="GenreTitle",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('genre', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='reviews.genre')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "genre",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="reviews.genre"
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Title',
+            name="Title",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=256)),
-                ('year', models.IntegerField()),
-                ('description', models.TextField(null=True)),
-                ('category', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='title', to='reviews.category')),
-                ('genre', models.ManyToManyField(blank=True, related_name='title', through='reviews.GenreTitle', to='reviews.Genre')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=256)),
+                ("year", models.IntegerField()),
+                ("description", models.TextField(null=True)),
+                (
+                    "category",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="title",
+                        to="reviews.category",
+                    ),
+                ),
+                (
+                    "genre",
+                    models.ManyToManyField(
+                        blank=True,
+                        related_name="title",
+                        through="reviews.GenreTitle",
+                        to="reviews.Genre",
+                    ),
+                ),
             ],
         ),
         migrations.AddField(
-            model_name='genretitle',
-            name='title',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='reviews.title'),
+            model_name="genretitle",
+            name="title",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="reviews.title"
+            ),
         ),
     ]

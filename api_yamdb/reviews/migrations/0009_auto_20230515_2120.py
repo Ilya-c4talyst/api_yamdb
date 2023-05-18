@@ -7,18 +7,22 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('reviews', '0008_alter_genretitle_title'),
+        ("reviews", "0008_alter_genretitle_title"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='genretitle',
-            name='genre',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='reviews.genre'),
+            model_name="genretitle",
+            name="genre",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="reviews.genre"
+            ),
         ),
         migrations.AlterField(
-            model_name='genretitle',
-            name='title',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='reviews.title'),
+            model_name="genretitle",
+            name="title",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="reviews.title"
+            ),
         ),
     ]
