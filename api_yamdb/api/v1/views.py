@@ -1,18 +1,18 @@
-from django.db.models import Avg
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.permissions import (IsAuthenticated, IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from django_filters.rest_framework import DjangoFilterBackend
 
 from reviews.models import User, Genre, Category, Title, Review
-from .permissions import IsAdmin, IsAuthorModeratorAdminOrReadOnly, ReadOnly
+from .permissions import IsAdmin, IsAuthorModeratorAdminOrReadOnly, ReadOnly, ReadOnlyOrAdmin
 from .serializers import (
     GetTokenSerializer,SignUpSerializer,UserAdminSerializer,
     UserSerializer, GenreSerializer, CategorySerializer,
-    TitleSerializer, ReviewSerializer, CommentSerializer,
-    TitleListSerializer
+    TitleSerializer, ReviewSerializer, CommentSerializer
+    #TitleListSerializer
 )
 from .utils import get_and_send_confirmation_code
 
@@ -24,6 +24,7 @@ class ListCreateDeleteViewSet(
 
 
 class GenreViewSet(ListCreateDeleteViewSet):
+
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     search_fields = ('name',)
@@ -36,11 +37,12 @@ class GenreViewSet(ListCreateDeleteViewSet):
 
 
 class CategoryViewSet(ListCreateDeleteViewSet):
+
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     search_fields = ('name',)
     filter_backends = (filters.SearchFilter,)
-    
+
     def get_permissions(self):
         if self.action == 'list':
             return (ReadOnly(),)
@@ -48,19 +50,22 @@ class CategoryViewSet(ListCreateDeleteViewSet):
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.all()
+
     serializer_class = TitleSerializer
-    filter_backends = (filters.SearchFilter,)
-    
-    # def get_permissions(self):
-    #     if self.action == 'list':
-    #         return (ReadOnly(),)
-    #     return (IsAdmin(),)
-    
-    def get_serializer_class(self):
-        if self.action not in ['list', 'retrieve']:
-            return TitleSerializer
-        return TitleListSerializer
+    filter_backends = (DjangoFilterBackend, filters.SearchFilter)
+    filterset_fields = ('year', 'name')
+    search_fields = ('genre__slug',)
+    permission_classes = (ReadOnlyOrAdmin,)
+
+    def get_queryset(self):
+        queryset = Title.objects.all()
+        genre_slug = self.request.query_params.get('genre')
+        category_slug = self.request.query_params.get('category')
+        if genre_slug is not None:
+            queryset = queryset.filter(genre=genre_slug)
+        if category_slug is not None:
+            queryset = queryset.filter(category=category_slug)
+        return queryset
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -179,9 +184,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         if not (self.request.user == review.author or self.request.user.is_staff or self.request.user.is_moderator or self.request.user.is_admin):
             return Response(status=status.HTTP_400_BAD_REQUEST)
         serializer.save()
-
-        
-
 
 
 class CommentViewSet(viewsets.ModelViewSet):
