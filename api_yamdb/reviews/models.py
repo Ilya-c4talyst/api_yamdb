@@ -31,6 +31,7 @@ class User(AbstractUser):
         return self.role == self.MODERATOR
 
     def __str__(self):
+
         return f"{self.first_name} {self.last_name}"
 
 
