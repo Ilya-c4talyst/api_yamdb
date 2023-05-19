@@ -5,6 +5,7 @@ import pandas as pd
 
 
 class Command(BaseCommand):
+    # flake8: noqa: C901
     def handle(self, *args, **options):
         """Заполняем датафреймы"""
         df_genre = pd.read_csv('static/data/genre.csv', index_col='id')
