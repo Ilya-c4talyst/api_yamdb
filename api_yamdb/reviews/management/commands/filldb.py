@@ -46,7 +46,9 @@
 #                 id=ind,
 #                 name=df_titles.loc[ind, 'name'],
 #                 year=df_titles.loc[ind, 'year'],
-#                 category=Category.objects.get(slug=df_titles.loc[ind, 'slug'])
+#                 category=Category.objects.get(
+                      slug=df_titles.loc[ind, 'slug']
+                  )
 #             )
 #         """Заполняем GenreTitle."""
 #         GenreTitle.objects.all().delete()
