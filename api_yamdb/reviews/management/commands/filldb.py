@@ -5,7 +5,7 @@
 
 
 # class Command(BaseCommand):
-#     def handle(  # noqa: C901
+#     def handle(
 #         self,
 #         *args,
 #         **options
@@ -47,8 +47,8 @@
 #                 name=df_titles.loc[ind, 'name'],
 #                 year=df_titles.loc[ind, 'year'],
 #                 category=Category.objects.get(
-                      slug=df_titles.loc[ind, 'slug']
-                  )
+#                     slug=df_titles.loc[ind, 'slug']
+#                 )
 #             )
 #         """Заполняем GenreTitle."""
 #         GenreTitle.objects.all().delete()
