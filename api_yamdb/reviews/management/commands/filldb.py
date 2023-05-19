@@ -95,8 +95,10 @@ class Command(BaseCommand):
         for ind in df_comment.index:
             review_ind = df_comment.loc[ind, 'review']
             author_ind = df_comment.loc[ind, 'author']
-            if (review_ind in df_review['id'].values and
-                    author_ind in df_users['id'].values):
+            if (
+                review_ind in df_review['id'].values and author_ind
+                in df_users['id'].values
+            ):
                 review = Review.objects.get(pk=review_ind)
                 author = User.objects.get(pk=author_ind)
                 Comment.objects.create(
