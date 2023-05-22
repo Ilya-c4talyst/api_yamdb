@@ -1,6 +1,10 @@
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+from .validators import custom_username_validator
+from api_yamdb.settings import LENGTH_USERNAME, LENGTH_256
 
 
 class User(AbstractUser):
@@ -8,53 +12,53 @@ class User(AbstractUser):
     ADMIN = "admin"
     MODERATOR = "moderator"
     ROLES = [(USER, "user"), (ADMIN, "admin"), (MODERATOR, "moderator")]
-    username = models.SlugField(max_length=150, unique=True)
-    email = models.EmailField(max_length=254, unique=True)
-    first_name = models.CharField(max_length=150, blank=True)
-    last_name = models.CharField(max_length=150, blank=True)
+    username = models.SlugField(
+        max_length=LENGTH_USERNAME,
+        unique=True,
+        validators=[
+            UnicodeUsernameValidator(),
+            custom_username_validator
+        ]
+    )
+    email = models.EmailField(unique=True)
     bio = models.TextField(blank=True, max_length=100, null=True)
-    role = models.SlugField(choices=ROLES, default=USER, max_length=10)
+    role = models.SlugField(choices=ROLES, default=USER, max_length=30)
     confirmation_code = models.SlugField(
         null=True, blank=True, max_length=200, editable=True, unique=True
     )
 
     @property
-    def is_user(self):
-        return self.role == self.USER
-
-    @property
     def is_admin(self):
-        return self.role == self.ADMIN
+        return self.role == self.ADMIN or self.is_staff or self.is_superuser
 
     @property
     def is_moderator(self):
         return self.role == self.MODERATOR
 
     def __str__(self):
-
         return f"{self.first_name} {self.last_name}"
 
 
 class Genre(models.Model):
-    name = models.CharField(max_length=256)
-    slug = models.SlugField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=LENGTH_256)
+    slug = models.SlugField(primary_key=True)
 
     def __str__(self):
-        return f"{self.name} {self.slug}"
+        return f"{self.name}{self.slug}"
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=256)
-    slug = models.SlugField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=LENGTH_256)
+    slug = models.SlugField(primary_key=True)
 
     def __str__(self):
-        return f"{self.name} {self.slug}"
+        return f"{self.name}{self.slug}"
 
 
 class Title(models.Model):
-    name = models.CharField(max_length=256)
-    year = models.IntegerField()
-    description = models.TextField(null=True)
+    name = models.CharField(max_length=LENGTH_256)
+    year = models.SmallIntegerField()
+    description = models.TextField()
     genre = models.ManyToManyField(
         Genre, through="GenreTitle", related_name="title", blank=True
     )

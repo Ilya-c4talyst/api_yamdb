@@ -1,110 +1,86 @@
+import pandas as pd
+
 from django.core.management.base import BaseCommand
+
 from reviews.models import (Genre, Title, Category, GenreTitle,
                             User, Review, Comment)
-import pandas as pd
 
 
 class Command(BaseCommand):
+
+    df_genre = pd.read_csv('static/data/genre.csv')
+    df_category = pd.read_csv('static/data/category.csv')
+    df_title = pd.read_csv('static/data/titles.csv')
+    df_genre_title = (
+        pd.read_csv('static/data/genre_title.csv')
+        .rename(columns={'genre_id': 'genre', 'title_id': 'title'})
+    )
+    df_user = pd.read_csv('static/data/users.csv')[['id',
+                                                    'username',
+                                                    'email',
+                                                    'role']]
+    df_review = (pd.read_csv('static/data/review.csv')
+                 .rename(columns={'title_id': 'title'}))
+    df_comment = pd.read_csv('static/data/comments.csv')
+    df = {
+        'genre': (df_genre, Genre, 'slug'),
+        'category': (df_category, Category, 'slug'),
+        'title': (df_title, Title, 'id'),
+        'genre_title': (df_genre_title, GenreTitle, 'id'),
+        'author': (df_user, User, 'id'),
+        'review': (df_review, Review, 'id'),
+        'comment': (df_comment, Comment, 'id')
+    }
+
+    def correct_df(self, data, name):
+        data.dropna(inplace=True)
+        data.drop_duplicates(name, inplace=True)
+
+    def check_all_df(self):
+        """Убираем дубликаты потенциальных ключей и пустые значения."""
+        for tek in self.df:
+            self.correct_df(self.df[tek][0], self.df[tek][2])
+
+    def data_translate(self, data):
+        """Функция для преобразуем id объектов в объекты."""
+        for el in data:
+            if el in ['genre', 'category']:
+                df_t = self.df[el][0]  # Датасет соответствующего элемента
+                class_el = self.df[el][1]
+                el_id = data[el]
+                if el_id in df_t['id'].values:
+                    slug = df_t.set_index('id').loc[el_id, 'slug']
+                    data[el] = class_el.objects.get(slug=slug)
+                else:
+                    return None
+
+            if el in ['author', 'title', 'review']:
+                df_t = self.df[el][0]  # Датасет соответствующего элемента
+                class_el = self.df[el][1]
+                el_id = data[el]
+                if el_id in df_t['id'].values:
+                    data[el] = class_el.objects.get(pk=el_id)
+                else:
+                    return None
+
+        return data
+
     def handle(self, *args, **options):
-        """Заполняем датафреймы"""
-        df_genre = pd.read_csv('static/data/genre.csv', index_col='id')
-        df_category = pd.read_csv('static/data/category.csv', index_col='id')
-        df_titles = pd.read_csv('static/data/titles.csv')
-        df_genre_title = pd.read_csv('static/data/genre_title.csv',
-                                     index_col='id')
-        df_users = pd.read_csv('static/data/users.csv')
-        df_review = pd.read_csv('static/data/review.csv')
-        df_comment = pd.read_csv('static/data/comments.csv')
 
-        """Заполняем Genre и Category с предобработкой данных."""
-        Genre.objects.all().delete()
-        Category.objects.all().delete()
-        df_gen_cat = [(df_genre, Genre), (df_category, Category)]
-        for df, db in df_gen_cat:
-            df.dropna(inplace=True)
-            df.drop_duplicates('slug', inplace=True)
-            """Наполняем базы."""
-            for ind in df.index:
-                db.objects.create(slug=df.loc[ind, 'slug'],
-                                  name=df.loc[ind, 'name'])
+        self.check_all_df()
 
-        """Заполняем Title с предобработкой данных."""
-        Title.objects.all().delete()
-        df_titles.dropna(inplace=True)
-        df_titles.drop_duplicates('id', inplace=True)
-        df_titles = df_titles.merge(df_category[['slug']],
-                                    how='left',
-                                    left_on='category',
-                                    right_on='id').set_index('id')
+        for elem in self.df:
+            df_t = self.df[elem][0]
+            class_t = self.df[elem][1]
+            class_t.objects.all().delete()
 
-        for ind in df_titles.index:
-            Title.objects.create(
-                id=ind,
-                name=df_titles.loc[ind, 'name'],
-                year=df_titles.loc[ind, 'year'],
-                category=Category.objects.get(slug=df_titles.loc[ind, 'slug'])
-            )
-        """Заполняем GenreTitle."""
-        GenreTitle.objects.all().delete()
-        for ind in df_genre_title.index:
-            title_ind = df_genre_title.loc[ind, "title_id"]
-            genre_ind = df_genre_title.loc[ind, "genre_id"]
-            if title_ind in df_titles.index and genre_ind in df_genre.index:
-                genre_slug = df_genre.loc[genre_ind, 'slug']
-                GenreTitle.objects.create(
-                    id=ind,
-                    title=Title.objects.get(pk=title_ind),
-                    genre=Genre.objects.get(slug=genre_slug)
-                )
+            for ind in df_t.index:
+                data = df_t.loc[ind].to_dict()
+                data = self.data_translate(data)
+                if data:
+                    if elem in ['genre', 'category']:
+                        data.pop('id')
+                    class_t.objects.create(**data)
 
-        """Заполняем User и предобработка."""
-        User.objects.all().delete()
-        df_users.drop_duplicates('username', inplace=True)
-        df_users.drop_duplicates('email', inplace=True)
-        df_users = df_users[['id', 'username', 'email', 'role']]
-        for ind in df_users.index:
-            data = df_users.loc[ind].to_dict()
-            User.objects.create(**data)
-
-        """Заполняем Review."""
-        Review.objects.all().delete()
-        df_review.drop_duplicates('id', inplace=True)
-        df_review.dropna(inplace=True)
-        df_review.rename(columns={'title_id': 'title'}, inplace=True)
-        for ind in df_review.index:
-            title_ind = df_review.loc[ind, 'title']
-            author_ind = df_review.loc[ind, 'author']
-            if (title_ind in df_titles.index
-                    and author_ind in df_users['id'].values):
-                title = Title.objects.get(pk=title_ind)
-                author = User.objects.get(pk=author_ind)
-                Review.objects.create(
-                    id=df_review.loc[ind, 'id'],
-                    title=title,
-                    author=author,
-                    score=df_review.loc[ind, 'score'],
-                    text=df_review.loc[ind, 'text'],
-                    pub_date=df_review.loc[ind, 'pub_date']
-                )
-
-        """Заполняем Comment."""
-        Comment.objects.all().delete()
-        df_comment.drop_duplicates('id', inplace=True)
-        df_comment.dropna(inplace=True)
-        df_comment.rename(columns={'review_id': 'review'}, inplace=True)
-        for ind in df_comment.index:
-            review_ind = df_comment.loc[ind, 'review']
-            author_ind = df_comment.loc[ind, 'author']
-            if (
-                review_ind in df_review['id'].values and author_ind
-                in df_users['id'].values
-            ):
-                review = Review.objects.get(pk=review_ind)
-                author = User.objects.get(pk=author_ind)
-                Comment.objects.create(
-                    id=df_comment.loc[ind, 'id'],
-                    review=review,
-                    author=author,
-                    text=df_comment.loc[ind, 'text'],
-                    pub_date=df_comment.loc[ind, 'pub_date']
-                )
+            print(f'Таблица <{class_t.name}> наполнена тестовыми данными.'
+                  f' Количество записей - {class_t.objects.count()}.')

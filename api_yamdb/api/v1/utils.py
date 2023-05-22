@@ -1,8 +1,8 @@
 import uuid
 
-from api_yamdb.settings import ADMIN_EMAIL
-
 from django.core.mail import send_mail
+
+from api_yamdb.settings import ADMIN_EMAIL
 
 
 def get_and_send_confirmation_code(user):

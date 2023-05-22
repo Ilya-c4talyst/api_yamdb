@@ -1,16 +1,17 @@
+from django.db.models import Avg
+from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.permissions import (IsAuthenticated,
                                         IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
-from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework_simplejwt.tokens import AccessToken
+
 
 from api.v1.permissions import (
     IsAdmin,
     IsAuthorModeratorAdminOrReadOnly,
-    ReadOnly,
     ReadOnlyOrAdmin,
 )
 from api.v1.serializers import (
@@ -20,18 +21,8 @@ from api.v1.serializers import (
     UserSerializer,
     GenreSerializer,
     CategorySerializer,
-    TitleSerializer,
-    ReviewSerializer,
-    CommentSerializer,
-)
-from api.v1.serializers import (
-    GetTokenSerializer,
-    SignUpSerializer,
-    UserAdminSerializer,
-    UserSerializer,
-    GenreSerializer,
-    CategorySerializer,
-    TitleSerializer,
+    TitleReadSerializer,
+    TitleWriteSerializer,
     ReviewSerializer,
     CommentSerializer,
 )
@@ -45,42 +36,40 @@ class ListCreateDeleteViewSet(
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    pass
+    search_fields = ("name",)
+    filter_backends = (filters.SearchFilter,)
+
+    def get_permissions(self):
+        if self.action == "list":
+            return (ReadOnlyOrAdmin(),)
+        return (IsAdmin(),)
 
 
 class GenreViewSet(ListCreateDeleteViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    search_fields = ("name",)
-    filter_backends = (filters.SearchFilter,)
-
-    def get_permissions(self):
-        if self.action == "list":
-            return (ReadOnly(),)
-        return (IsAdmin(),)
 
 
 class CategoryViewSet(ListCreateDeleteViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    search_fields = ("name",)
-    filter_backends = (filters.SearchFilter,)
-
-    def get_permissions(self):
-        if self.action == "list":
-            return (ReadOnly(),)
-        return (IsAdmin(),)
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    serializer_class = TitleSerializer
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
     filterset_fields = ("year", "name")
     search_fields = ("genre__slug",)
     permission_classes = (ReadOnlyOrAdmin,)
+    http_method_names = ["patch", "get", "post", "delete"]
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'partial_update']:
+            return TitleWriteSerializer
+        else:
+            return TitleReadSerializer
 
     def get_queryset(self):
-        queryset = Title.objects.all()
+        queryset = Title.objects.annotate(rating=Avg('review__score'))
         genre_slug = self.request.query_params.get("genre")
         category_slug = self.request.query_params.get("category")
         if genre_slug is not None:
@@ -110,11 +99,10 @@ class UserViewSet(viewsets.ModelViewSet):
         if request.method == "GET":
             serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        if request.method == "PATCH":
-            serializer = UserSerializer(user, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -139,10 +127,13 @@ def token(request):
     serializer = GetTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     user = get_object_or_404(User, username=serializer.data["username"])
+
     if serializer.data["confirmation_code"] == user.confirmation_code:
-        refresh = RefreshToken.for_user(user)
-        return Response({"token": str(refresh.access_token)},
-                        status=status.HTTP_200_OK)
+        access_token = AccessToken.for_user(user)
+        return Response(
+            {"access_token": str(access_token)}, status=status.HTTP_200_OK
+        )
+
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
 

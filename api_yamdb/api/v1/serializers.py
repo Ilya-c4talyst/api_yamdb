@@ -1,52 +1,33 @@
 import datetime as dt
-import uuid
 
-from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
-from django.db.models import Avg, Count
+from django.contrib.auth.tokens import default_token_generator
 from rest_framework import serializers
 
-from reviews.models import (Category, Comment, Genre, GenreTitle, Review,
+from reviews.models import (Category, Comment, Genre, Review,
                             Title, User)
 
 
 class UserSerializer(serializers.ModelSerializer):
     role = serializers.StringRelatedField(read_only=True)
-    username_validator = RegexValidator(
-        regex=r"^[\w.@+-]+$", message="Некорректный формат поля username"
-    )
 
     class Meta:
         model = User
         fields = (
+            "username",
+            "email",
             "first_name",
             "last_name",
-            "username",
             "bio",
-            "email",
             "role",
-            "confirmation_code",
         )
 
     def create(self, validated_data):
-        email = validated_data["email"]
-        confirmation_code = str(uuid.uuid3(uuid.NAMESPACE_X500, email))
+        confirmation_code = default_token_generator.make_token(
+            validated_data["user"]
+        )
         return User.objects.create(
             **validated_data, confirmation_code=confirmation_code
         )
-
-    def validate_username(self, name):
-        self.username_validator(name)
-        if name == "me":
-            raise serializers.ValidationError()
-        elif name is None or name == "":
-            raise serializers.ValidationError()
-        return name
-
-    def validate_email(self, email):
-        if email is None or email == "":
-            raise serializers.ValidationError()
-        return email
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
@@ -55,49 +36,19 @@ class UserAdminSerializer(serializers.ModelSerializer):
         fields = ("username", "email", "first_name",
                   "last_name", "bio", "role")
 
-    def validate_username(self, name):
-        if name == "me":
-            raise serializers.ValidationError()
-        elif name is None or name == "":
-            raise serializers.ValidationError()
-        return name
-
-    def validate_email(self, email):
-        if email is None or email == "":
-            raise serializers.ValidationError()
-        return email
-
 
 class SignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("username", "email")
 
-    def validate_username(self, name):
-        if name == "me":
-            raise serializers.ValidationError()
-        elif name is None or name == "":
-            raise serializers.ValidationError()
-        return name
-
-    def validate_email(self, email):
-        if email is None or email == "":
-            raise serializers.ValidationError()
-        return email
-
 
 class GetTokenSerializer(serializers.Serializer):
     username = serializers.SlugField(required=True)
     confirmation_code = serializers.SlugField(required=True)
 
-    class Meta:
-        model = User
-        fields = ("username", "confirmation_code")
-
     def validate_username(self, name):
         if name == "me":
-            raise serializers.ValidationError()
-        elif name is None or name == "":
             raise serializers.ValidationError()
         return name
 
@@ -105,7 +56,6 @@ class GetTokenSerializer(serializers.Serializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        lookup_field = "slug"
         fields = ("name", "slug")
 
 
@@ -124,19 +74,15 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
 
     def validate(self, data):
+        if self.context["request"].method != "POST":
+            return data
         author = self.context["request"].user
         title_id = self.context.get("view").kwargs.get("title_id")
-        if self.context["request"].method == "POST":
-            if Review.objects.filter(title=title_id, author=author).exists():
-                raise serializers.ValidationError(
-                    "Вы уже писали отзыв к этому произведению"
-                )
+        if Review.objects.filter(title=title_id, author=author).exists():
+            raise serializers.ValidationError(
+                "Вы уже писали отзыв к этому произведению"
+            )
         return data
-
-    def validate_score(self, value):
-        if 0 > value > 10:
-            raise ValidationError("Оценкой может быть число от 1 до 10")
-        return value
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -180,10 +126,10 @@ class category_type(serializers.Field):
         return serializers.ValidationError("Ошибка во вводе Category")
 
 
-class TitleSerializer(serializers.ModelSerializer):
+class TitleReadSerializer(serializers.ModelSerializer):
 
-    genre = genre_type()
-    category = category_type()
+    genre = GenreSerializer(many=True)
+    category = CategorySerializer()
     rating = serializers.SerializerMethodField()
 
     class Meta:
@@ -192,20 +138,23 @@ class TitleSerializer(serializers.ModelSerializer):
                   "description", "genre", "category")
 
     def get_rating(self, obj):
-        if obj.review.aggregate(Count("score")).get("score__count") > 0:
-            return obj.review.aggregate(Avg("score")).get("score__avg")
-        return None
-
-    def create(self, validated_data):
-        print(validated_data)
-        genres_data = validated_data.pop("genre")
-        title = Title.objects.create(**validated_data)
-        for genre_data in genres_data:
-            GenreTitle.objects.create(genre=genre_data, title=title)
-        return title
+        return obj.rating
 
     def validate_year(self, value):
         year = dt.date.today().year
-        if not (0 < value <= year):
+        if value > year:
             raise serializers.ValidationError("Не корректная дата! ")
         return value
+
+
+class TitleWriteSerializer(serializers.ModelSerializer):
+
+    genre = serializers.PrimaryKeyRelatedField(many=True,
+                                               queryset=Genre.objects.all())
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all())
+
+    class Meta:
+        model = Title
+        fields = ("id", "name", "year",
+                  "description", "genre", "category")
