@@ -163,10 +163,9 @@ class CommentViewSet(viewsets.ModelViewSet):
         return get_object_or_404(
             Review, pk=self.kwargs["review_id"], title=self.kwargs["title_id"]
         )
-    
+
     def get_queryset(self):
         return self.get_review().comment.all()
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user, review=self.get_review())
-
