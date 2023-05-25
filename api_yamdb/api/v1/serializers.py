@@ -94,19 +94,21 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
 
 
-class TitleReadSerializer(serializers.ModelSerializer):
+class TitleSerializer(serializers.ModelSerializer):
 
-    genre = GenreSerializer(many=True)
-    category = CategorySerializer()
+    genre = serializers.PrimaryKeyRelatedField(many=True,
+                                               queryset=Genre.objects.all())
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all())
     rating = serializers.SerializerMethodField()
+
+    def get_rating(self, obj):
+        return self.context['view'].queryset.get(id=obj.id).rating
 
     class Meta:
         model = Title
         fields = ("id", "name", "year", "rating",
                   "description", "genre", "category")
-
-    def get_rating(self, obj):
-        return obj.rating
 
     def validate_year(self, value):
         year = dt.date.today().year
@@ -114,15 +116,14 @@ class TitleReadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Не корректная дата! ")
         return value
 
-
-class TitleWriteSerializer(serializers.ModelSerializer):
-
-    genre = serializers.PrimaryKeyRelatedField(many=True,
-                                               queryset=Genre.objects.all())
-    category = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all())
-
-    class Meta:
-        model = Title
-        fields = ("id", "name", "year",
-                  "description", "genre", "category")
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        category = rep.get('category')
+        if category:
+            catogeory_ob = Category.objects.get(pk=category)
+            rep['category'] = CategorySerializer(catogeory_ob).data
+        list_genre_ob = []
+        for genre in rep.get('genre'):
+            list_genre_ob.append(Genre.objects.get(pk=genre))
+        rep['genre'] = GenreSerializer(list_genre_ob, many=True).data
+        return rep

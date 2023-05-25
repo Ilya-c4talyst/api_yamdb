@@ -21,8 +21,7 @@ from api.v1.serializers import (
     UserSerializer,
     GenreSerializer,
     CategorySerializer,
-    TitleReadSerializer,
-    TitleWriteSerializer,
+    TitleSerializer,
     ReviewSerializer,
     CommentSerializer,
 )
@@ -53,26 +52,12 @@ class CategoryViewSet(ListCreateDeleteViewSet):
 
 class TitleViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
-    filterset_fields = ("year", "name")
+    filterset_fields = ("year", "name", "genre", "category")
     search_fields = ("genre__slug",)
     permission_classes = (ReadOnlyOrAdmin,)
     http_method_names = ["patch", "get", "post", "delete"]
-
-    def get_serializer_class(self):
-        if self.action in ['create', 'partial_update']:
-            return TitleWriteSerializer
-        else:
-            return TitleReadSerializer
-
-    def get_queryset(self):
-        queryset = Title.objects.annotate(rating=Avg('review__score'))
-        genre_slug = self.request.query_params.get("genre")
-        category_slug = self.request.query_params.get("category")
-        if genre_slug is not None:
-            queryset = queryset.filter(genre=genre_slug)
-        if category_slug is not None:
-            queryset = queryset.filter(category=category_slug)
-        return queryset
+    serializer_class = TitleSerializer
+    queryset = Title.objects.annotate(rating=Avg('review__score')).all()
 
 
 class UserViewSet(viewsets.ModelViewSet):

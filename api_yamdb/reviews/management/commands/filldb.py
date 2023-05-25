@@ -82,5 +82,5 @@ class Command(BaseCommand):
                         data.pop('id')
                     class_t.objects.create(**data)
 
-            print(f'Таблица <{class_t.name}> наполнена тестовыми данными.'
+            print(f'Таблица <{class_t.__name__}> наполнена тестовыми данными.'
                   f' Количество записей - {class_t.objects.count()}.')
