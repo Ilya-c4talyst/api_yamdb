@@ -38,11 +38,7 @@ class ListCreateDeleteViewSet(
 ):
     search_fields = ("name",)
     filter_backends = (filters.SearchFilter,)
-
-    def get_permissions(self):
-        if self.action == "list":
-            return (ReadOnlyOrAdmin(),)
-        return (IsAdmin(),)
+    permission_classes = (ReadOnlyOrAdmin,)
 
 
 class GenreViewSet(ListCreateDeleteViewSet):
@@ -115,10 +111,10 @@ def signup(request):
         return Response(request.data, status=status.HTTP_200_OK)
 
     serializer = SignUpSerializer(data=request.data)
-    if serializer.is_valid(raise_exception=True):
-        serializer.save()
-        user = User.objects.filter(**serializer.data)
-        get_and_send_confirmation_code(user)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    user = User.objects.filter(**serializer.data)
+    get_and_send_confirmation_code(user)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -131,7 +127,7 @@ def token(request):
     if serializer.data["confirmation_code"] == user.confirmation_code:
         access_token = AccessToken.for_user(user)
         return Response(
-            {"access_token": str(access_token)}, status=status.HTTP_200_OK
+            {"token": str(access_token)}, status=status.HTTP_200_OK
         )
 
     return Response(status=status.HTTP_400_BAD_REQUEST)

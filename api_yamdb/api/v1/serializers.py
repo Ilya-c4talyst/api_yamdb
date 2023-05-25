@@ -94,38 +94,6 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
 
 
-class genre_type(serializers.Field):
-    """Пользовательское поле для управления genre"""
-
-    def to_representation(self, value):
-        """Получаем объекты и переводим в json формат"""
-        genres = GenreSerializer(value.all(), many=True)
-        return genres.data
-
-    def to_internal_value(self, data):
-        """Запись"""
-        data = self.context["request"].data.getlist("genre")
-        genres = []
-        for genre_slug in data:
-            if Genre.objects.filter(slug=genre_slug).exists():
-                genres.append(Genre.objects.get(slug=genre_slug))
-        return genres
-
-
-class category_type(serializers.Field):
-    """Пользовательское поле для управления category"""
-
-    def to_representation(self, value):
-        """Получаем объекты и переводим в json формат"""
-        return GenreSerializer(value).data
-
-    def to_internal_value(self, data):
-        """Запись"""
-        if Category.objects.filter(slug=data).exists():
-            return Category.objects.get(slug=data)
-        return serializers.ValidationError("Ошибка во вводе Category")
-
-
 class TitleReadSerializer(serializers.ModelSerializer):
 
     genre = GenreSerializer(many=True)

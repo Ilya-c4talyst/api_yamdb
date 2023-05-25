@@ -4,7 +4,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from .validators import custom_username_validator
-from api_yamdb.settings import LENGTH_USERNAME, LENGTH_256
+from api_yamdb.settings import LENGTH_USERNAME, LENGTH_NAME
 
 
 class User(AbstractUser):
@@ -12,7 +12,7 @@ class User(AbstractUser):
     ADMIN = "admin"
     MODERATOR = "moderator"
     ROLES = [(USER, "user"), (ADMIN, "admin"), (MODERATOR, "moderator")]
-    username = models.SlugField(
+    username = models.CharField(
         max_length=LENGTH_USERNAME,
         unique=True,
         validators=[
@@ -40,7 +40,7 @@ class User(AbstractUser):
 
 
 class Genre(models.Model):
-    name = models.CharField(max_length=LENGTH_256)
+    name = models.CharField(max_length=LENGTH_NAME)
     slug = models.SlugField(primary_key=True)
 
     def __str__(self):
@@ -48,7 +48,7 @@ class Genre(models.Model):
 
 
 class Category(models.Model):
-    name = models.CharField(max_length=LENGTH_256)
+    name = models.CharField(max_length=LENGTH_NAME)
     slug = models.SlugField(primary_key=True)
 
     def __str__(self):
@@ -56,7 +56,7 @@ class Category(models.Model):
 
 
 class Title(models.Model):
-    name = models.CharField(max_length=LENGTH_256)
+    name = models.CharField(max_length=LENGTH_NAME)
     year = models.SmallIntegerField()
     description = models.TextField()
     genre = models.ManyToManyField(
